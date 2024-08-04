@@ -18,11 +18,22 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-from tryon import views 
+
+from tryon.views import try_on_clothes 
+from application.views import ApplicationCreate
+from reviews.views import ReviewView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    #review
+    path('api/review/', ReviewView.as_view(), name='review'),
 
-    path('', views.clothing_selection_view, name='clothing_selection'),
-    path('try-on/', views.try_on_clothes, name='try_on'),
+
+    #application
+    path('api/create-application/', ApplicationCreate.as_view(), name='create-application'),
+
+    #try on
+    path('api/try-on/', try_on_clothes, name='try_on_clothes'),
+
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
