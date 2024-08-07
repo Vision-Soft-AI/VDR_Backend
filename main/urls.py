@@ -19,7 +19,7 @@ from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
 
-from tryon.views import try_on_clothes 
+from tryon.views import try_on_clothes, try_on_clothes_page
 from application.views import ApplicationCreate
 from reviews.views import ReviewView
 
@@ -35,5 +35,6 @@ urlpatterns = [
 
     #try on
     path('api/try-on/', try_on_clothes, name='try_on_clothes'),
+    path('try-on-clothes/<int:shirt_id>/<int:pant_id>/', try_on_clothes_page, name='try_on_clothes_page'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,10 +1,11 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
+from django.shortcuts import render
+from django.urls import reverse
 
 from .models import Shirt, Pant
 from .serializers import ShirtSerializer, PantSerializer
-from video_processing import process_video
 
 
 class ShirtViewSet(viewsets.ModelViewSet):
@@ -26,10 +27,18 @@ def try_on_clothes(request):
     except (Shirt.DoesNotExist, Pant.DoesNotExist):
         return Response({'error': 'Shirt or Pant not found'}, status=404)
 
-    # Call the video processing function
-    process_video(shirt.image.path, pant.image.path)
+    # Generate URL for the try-on clothes page
+    page_url = reverse('try_on_clothes_page', kwargs={'shirt_id': shirt_id, 'pant_id': pant_id})
+    full_url = request.build_absolute_uri(page_url)
 
     return Response({
         'shirt': ShirtSerializer(shirt).data,
-        'pant': PantSerializer(pant).data
+        'pant': PantSerializer(pant).data,
+        'url': full_url
+    })
+
+def try_on_clothes_page(request, shirt_id, pant_id):
+    return render(request, 'index.html', {
+        'shirt_id': shirt_id,
+        'pant_id': pant_id
     })
