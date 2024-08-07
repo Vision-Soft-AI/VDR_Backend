@@ -15,7 +15,7 @@ class ShirtViewSet(viewsets.ModelViewSet):
 class PantViewSet(viewsets.ModelViewSet):
     queryset = Pant.objects.all()
     serializer_class = PantSerializer
-
+    
 @api_view(['POST'])
 def try_on_clothes(request):
     shirt_id = request.data.get('shirt')

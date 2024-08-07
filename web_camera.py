@@ -3,15 +3,20 @@ from flask import Flask, render_template, Response, request
 from flask_cors import CORS
 
 app = Flask(__name__, template_folder='templates')
-CORS(app)
+# CORS(app)
 
 class VideoCamera(object):
     def __init__(self, shirt_path, pant_path):
-        self.video = cv2.VideoCapture(0 + cv2.CAP_DSHOW)
+        self.video = cv2.VideoCapture('/dev/video0')
         
         # Load shirt and pant images
         self.img_shirt = cv2.imread(shirt_path, cv2.IMREAD_UNCHANGED)
         self.img_pant = cv2.imread(pant_path, cv2.IMREAD_UNCHANGED)
+        
+        if self.img_shirt is None:
+            raise ValueError(f"Shirt image not found or cannot be loaded: {shirt_path}")
+        if self.img_pant is None:
+            raise ValueError(f"Pant image not found or cannot be loaded: {pant_path}")
         
         # Get original sizes
         self.orig_shirt_height, self.orig_shirt_width = self.img_shirt.shape[:2]
@@ -73,6 +78,7 @@ class VideoCamera(object):
 
         return jpeg.tobytes()
 
+
 def blend_images(background, overlay):
     # Create a mask and blend the overlay with the background
     overlay_gray = cv2.cvtColor(overlay, cv2.COLOR_BGR2GRAY)
@@ -100,11 +106,12 @@ def video_feed():
     shirt_id = request.args.get('shirt_id', 'default_shirt_id')
     pant_id = request.args.get('pant_id', 'default_pant_id')
 
-    shirt_path = f'media/shirts/{shirt_id}.jpg'
+    shirt_path = f'media/shirts/{shirt_id}.png'
     pant_path = f'media/pants/{pant_id}.png'
 
     return Response(gen(VideoCamera(shirt_path, pant_path)),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=True)
+
