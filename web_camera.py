@@ -7,7 +7,7 @@ app = Flask(__name__, template_folder='templates')
 
 class VideoCamera(object):
     def __init__(self, shirt_path, pant_path):
-        self.video = cv2.VideoCapture(0,cv2.CAP_DSHOW)
+        self.video = cv2.VideoCapture(0)
         
         if not os.path.isfile(shirt_path) or not os.path.isfile(pant_path):
             raise ValueError("Shirt or Pant image file does not exist")
