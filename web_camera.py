@@ -1,22 +1,19 @@
 import cv2
-from flask import Flask, render_template, Response, request
-from flask_cors import CORS
+import numpy as np
+from flask import Flask, render_template, Response, request, abort
+import os
 
 app = Flask(__name__, template_folder='templates')
-# CORS(app)
 
 class VideoCamera(object):
     def __init__(self, shirt_path, pant_path):
-        self.video = cv2.VideoCapture('/dev/video0')
+        self.video = cv2.VideoCapture(0,cv2.CAP_DSHOW)
         
-        # Load shirt and pant images
+        if not os.path.isfile(shirt_path) or not os.path.isfile(pant_path):
+            raise ValueError("Shirt or Pant image file does not exist")
+        
         self.img_shirt = cv2.imread(shirt_path, cv2.IMREAD_UNCHANGED)
         self.img_pant = cv2.imread(pant_path, cv2.IMREAD_UNCHANGED)
-        
-        if self.img_shirt is None:
-            raise ValueError(f"Shirt image not found or cannot be loaded: {shirt_path}")
-        if self.img_pant is None:
-            raise ValueError(f"Pant image not found or cannot be loaded: {pant_path}")
         
         # Get original sizes
         self.orig_shirt_height, self.orig_shirt_width = self.img_shirt.shape[:2]
@@ -77,18 +74,27 @@ class VideoCamera(object):
             return None
 
         return jpeg.tobytes()
-
-
+    
 def blend_images(background, overlay):
-    # Create a mask and blend the overlay with the background
-    overlay_gray = cv2.cvtColor(overlay, cv2.COLOR_BGR2GRAY)
-    _, mask = cv2.threshold(overlay_gray, 1, 255, cv2.THRESH_BINARY)
-    mask_inv = cv2.bitwise_not(mask)
+    # Ensure overlay fits the background
+    if background.shape[0] != overlay.shape[0] or background.shape[1] != overlay.shape[1]:
+        overlay = cv2.resize(overlay, (background.shape[1], background.shape[0]))
 
-    bg_part = cv2.bitwise_and(background, background, mask=mask_inv)
-    overlay_part = cv2.bitwise_and(overlay, overlay, mask=mask)
+    # If overlay has an alpha channel, separate it
+    if overlay.shape[2] == 4:
+        overlay_rgb = overlay[:, :, :3]
+        overlay_alpha = overlay[:, :, 3] / 255.0  # Normalize alpha to [0, 1]
+    else:
+        overlay_rgb = overlay
+        overlay_alpha = np.ones((overlay.shape[0], overlay.shape[1]))  # No alpha channel, so full opacity
 
-    return cv2.add(bg_part, overlay_part)
+    # Convert overlay_alpha to a 3-channel alpha for blending
+    alpha_3channel = np.stack([overlay_alpha] * 3, axis=-1)
+
+    # Blend images manually using the alpha channel
+    blended = (background * (1 - alpha_3channel) + overlay_rgb * alpha_3channel).astype(np.uint8)
+
+    return blended
 
 @app.route('/')
 def index():
@@ -103,15 +109,23 @@ def gen(camera):
 
 @app.route('/video_feed')
 def video_feed():
-    shirt_id = request.args.get('shirt_id', 'default_shirt_id')
-    pant_id = request.args.get('pant_id', 'default_pant_id')
+    shirt_id = request.args.get('shirt_id')
+    pant_id = request.args.get('pant_id')
+
+    if not shirt_id or not pant_id:
+        abort(400, description="Missing shirt_id or pant_id")
 
     shirt_path = f'media/shirts/{shirt_id}.png'
     pant_path = f'media/pants/{pant_id}.png'
 
-    return Response(gen(VideoCamera(shirt_path, pant_path)),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+    if not os.path.isfile(shirt_path) or not os.path.isfile(pant_path):
+        abort(404, description="Shirt or Pant image file not found")
+
+    try:
+        camera = VideoCamera(shirt_path, pant_path)
+        return Response(gen(camera), mimetype='multipart/x-mixed-replace; boundary=frame')
+    except ValueError as e:
+        abort(400, description=str(e))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-
